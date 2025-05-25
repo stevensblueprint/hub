@@ -23,9 +23,9 @@ export const handler: Handler = async (event: SetSecretEvent, context) => {
   if (!secretKey || !secretValue) {
     return {
       statusCode: 400,
-      body: JSON.stringify({
+      body: {
         error: "Missing required parameters: secretKey and secretValue",
-      }),
+      },
     };
   }
 
@@ -65,20 +65,20 @@ export const handler: Handler = async (event: SetSecretEvent, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
+      body: {
         message: "Secret updated successfully",
         secretKey: secretKey,
         versionId: result.VersionId,
-      }),
+      },
     };
   } catch (error) {
     console.error("Error updating secret:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({
+      body: {
         error: "Failed to update secret",
         details: error instanceof Error ? error.message : String(error),
-      }),
+      },
     };
   }
 };

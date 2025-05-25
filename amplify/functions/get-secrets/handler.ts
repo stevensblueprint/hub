@@ -27,9 +27,9 @@ export const handler: Handler = async (event: GetSecretEvent, context) => {
     if (!result.SecretString) {
       return {
         statusCode: 404,
-        body: JSON.stringify({
+        body: {
           error: "Secret not found or empty",
-        }),
+        },
       };
     }
 
@@ -48,9 +48,9 @@ export const handler: Handler = async (event: GetSecretEvent, context) => {
       } else {
         return {
           statusCode: 404,
-          body: JSON.stringify({
+          body: {
             error: `Secret key '${secretKey}' not found`,
-          }),
+          },
         };
       }
     }
@@ -58,21 +58,21 @@ export const handler: Handler = async (event: GetSecretEvent, context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
+      body: {
         secretKeys: secretKeys,
         versionId: result.VersionId,
         createdDate: result.CreatedDate,
         secrets: secrets,
-      }),
+      },
     };
   } catch (error) {
     console.error("Error retrieving secret:", error);
     return {
       statusCode: 500,
-      body: JSON.stringify({
+      body: {
         error: "Failed to retrieve secret",
         details: error instanceof Error ? error.message : String(error),
-      }),
+      },
     };
   }
 };

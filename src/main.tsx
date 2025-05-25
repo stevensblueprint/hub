@@ -7,10 +7,23 @@ import outputs from "../amplify_outputs.json";
 import "@aws-amplify/ui-react/styles.css";
 
 Amplify.configure(outputs);
+const formFields = {
+  signIn: {
+    email: {
+      order: 1,
+    },
+    givenName: {
+      order: 2,
+    },
+    familyName: {
+      order: 3,
+    },
+  },
+};
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Authenticator hideSignUp>
+    <Authenticator hideSignUp formFields={formFields}>
       <App />
     </Authenticator>
   </React.StrictMode>

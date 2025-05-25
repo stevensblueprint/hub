@@ -16,15 +16,13 @@ const schema = a.schema({
       allow.groups(["DEPLOYER"]).to(["read", "update", "delete", "create"]),
     ]),
   SecretsResponse: a.customType({
-    status: a.string(),
-    message: a.string(),
-    secrets: a.json(),
+    statusCode: a.integer(),
+    body: a.json(),
   }),
   getSecrets: a
     .query()
-    .arguments({})
     .returns(a.ref("SecretsResponse"))
-    .authorization((allow) => [allow.guest()]) // TODO: add admin group
+    .authorization((allow) => [allow.authenticated()]) // TODO: add admin group
     .handler(a.handler.function(getSecrets)),
   setSecrets: a
     .query()
@@ -32,7 +30,7 @@ const schema = a.schema({
       secrets: a.json(),
     })
     .returns(a.ref("SecretsResponse"))
-    .authorization((allow) => [allow.guest()]) // TODO: add admin group,
+    .authorization((allow) => [allow.authenticated()]) // TODO: add admin group,
     .handler(a.handler.function(setSecrets)),
 });
 
