@@ -1,4 +1,20 @@
 import { useAuthenticator } from "@aws-amplify/ui-react";
+import {
+  Button,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TextField,
+  Flex,
+  View,
+  Heading,
+  Text,
+  Alert,
+  Card,
+  Divider,
+} from "@aws-amplify/ui-react";
 import { generateClient } from "aws-amplify/api";
 import type { Schema } from "../amplify/data/resource";
 import { useEffect, useState } from "react";
@@ -12,10 +28,20 @@ interface SecretsData {
   secrets: Record<string, string>;
 }
 
+interface EditableSecret {
+  key: string;
+  value: string;
+  isNew?: boolean;
+  toDelete?: boolean;
+}
+
 function App() {
   const [secretsData, setSecretsData] = useState<SecretsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editableSecrets, setEditableSecrets] = useState<EditableSecret[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,41 +65,282 @@ function App() {
 
   const { signOut } = useAuthenticator();
 
+  const handleEdit = () => {
+    if (secretsData) {
+      const editable = Object.entries(secretsData.secrets).map(
+        ([key, value]) => ({
+          key,
+          value,
+        })
+      );
+      setEditableSecrets(editable);
+      setIsEditing(true);
+    }
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditableSecrets([]);
+  };
+
+  const addNewSecret = () => {
+    setEditableSecrets([
+      ...editableSecrets,
+      { key: "", value: "", isNew: true },
+    ]);
+  };
+
+  const updateSecret = (
+    index: number,
+    field: "key" | "value",
+    newValue: string
+  ) => {
+    const updated = [...editableSecrets];
+    updated[index][field] = newValue;
+    setEditableSecrets(updated);
+  };
+
+  const toggleDelete = (index: number) => {
+    const updated = [...editableSecrets];
+    updated[index].toDelete = !updated[index].toDelete;
+    setEditableSecrets(updated);
+  };
+
+  const removeNewSecret = (index: number) => {
+    const updated = editableSecrets.filter((_, i) => i !== index);
+    setEditableSecrets(updated);
+  };
+
+  const saveChanges = async () => {
+    try {
+      setSaving(true);
+      const updatedSecrets: Record<string, string> = {};
+
+      editableSecrets.forEach((secret) => {
+        if (!secret.toDelete && secret.key.trim() && secret.value.trim()) {
+          updatedSecrets[secret.key.trim()] = secret.value.trim();
+        }
+      });
+      if (secretsData) {
+        const updatedData = {
+          ...secretsData,
+          secrets: updatedSecrets,
+          secretKeys: Object.keys(updatedSecrets),
+          versionId: `v${Date.now()}`, // Simulate new version
+        };
+        setSecretsData(updatedData);
+      }
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error saving secrets:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to save secrets"
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
-      <main>
-        <p>Loading secrets...</p>
-        <button onClick={signOut}>Sign out</button>
-      </main>
+      <View padding="1rem">
+        <Text>Loading secrets...</Text>
+        <Button onClick={signOut} variation="link">
+          Sign out
+        </Button>
+      </View>
     );
   }
 
   if (error) {
     return (
-      <main>
-        <p>Error: {error}</p>
-        <button onClick={signOut}>Sign out</button>
-      </main>
+      <View padding="1rem">
+        <Alert variation="error" hasIcon>
+          <Heading level={4}>Error</Heading>
+          {error}
+        </Alert>
+        <Button onClick={signOut} variation="link">
+          Sign out
+        </Button>
+      </View>
     );
   }
 
   return (
-    <main>
-      <h1>Secrets Manager</h1>
-      {secretsData && (
-        <div>
-          <h2>Available Secret Keys:</h2>
-          <ul>
-            {secretsData.secretKeys.map((key) => (
-              <li key={key}>{key}</li>
-            ))}
-          </ul>
-          <p>Version ID: {secretsData.versionId}</p>
-          <p>Created: {new Date(secretsData.createdDate).toLocaleString()}</p>
-        </div>
+    <View padding="1rem">
+      <Flex direction="row" justifyContent="space-between" alignItems="center">
+        <Heading level={1}>Secrets Manager</Heading>
+        <Button onClick={signOut} variation="link">
+          Sign out
+        </Button>
+      </Flex>
+
+      {secretsData && !isEditing && (
+        <View marginTop="1rem">
+          <Flex
+            direction="row"
+            justifyContent="space-between"
+            alignItems="center"
+            marginBottom="1rem"
+          >
+            <Heading level={2}>Secrets</Heading>
+            <Button onClick={handleEdit} variation="primary">
+              Edit Secrets
+            </Button>
+          </Flex>
+
+          <Table variation="striped">
+            <TableHead>
+              <TableRow>
+                <TableCell as="th">Secret Key</TableCell>
+                <TableCell as="th">Secret Value</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {Object.entries(secretsData.secrets).map(([key, value]) => (
+                <TableRow key={key}>
+                  <TableCell>
+                    <Text fontWeight="bold">{key}</Text>
+                  </TableCell>
+                  <TableCell>
+                    <Text fontFamily="monospace">
+                      {"*".repeat(Math.min(value.length, 12))}
+                    </Text>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          <View marginTop="1rem">
+            <Text fontSize="0.875rem" color="gray">
+              Version ID: {secretsData.versionId} • Created:{" "}
+              {new Date(secretsData.createdDate).toLocaleString()}
+            </Text>
+          </View>
+        </View>
       )}
-      <button onClick={signOut}>Sign out</button>
-    </main>
+
+      {/* Edit Interface */}
+      {isEditing && (
+        <Card marginTop="1rem">
+          <View padding="1rem">
+            <Flex
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              marginBottom="1rem"
+            >
+              <Heading level={3}>Edit Secrets</Heading>
+              <Button onClick={cancelEdit} size="small" variation="link">
+                Cancel
+              </Button>
+            </Flex>
+
+            <Divider marginBottom="1rem" />
+
+            <View maxHeight="400px" overflow="auto" marginBottom="1rem">
+              {editableSecrets.map((secret, index) => (
+                <Card
+                  key={index}
+                  marginBottom="0.75rem"
+                  padding="0.75rem"
+                  backgroundColor={
+                    secret.toDelete
+                      ? "red.10"
+                      : secret.isNew
+                      ? "green.10"
+                      : "neutral.10"
+                  }
+                >
+                  <Flex direction="row" alignItems="end" gap="0.5rem">
+                    <TextField
+                      label="Secret Key"
+                      placeholder="Enter secret key"
+                      value={secret.key}
+                      onChange={(e) =>
+                        updateSecret(index, "key", e.target.value)
+                      }
+                      isDisabled={secret.toDelete}
+                      size="small"
+                      flex="1"
+                    />
+                    <TextField
+                      label="Secret Value"
+                      placeholder="Enter secret value"
+                      value={secret.value}
+                      onChange={(e) =>
+                        updateSecret(index, "value", e.target.value)
+                      }
+                      isDisabled={secret.toDelete}
+                      size="small"
+                      flex="2"
+                    />
+                    <View>
+                      {secret.isNew ? (
+                        <Button
+                          onClick={() => removeNewSecret(index)}
+                          size="small"
+                          variation="destructive"
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => toggleDelete(index)}
+                          size="small"
+                          variation={
+                            secret.toDelete ? "primary" : "destructive"
+                          }
+                        >
+                          {secret.toDelete ? "Restore" : "Delete"}
+                        </Button>
+                      )}
+                    </View>
+                  </Flex>
+                </Card>
+              ))}
+            </View>
+
+            <Divider marginBottom="1rem" />
+
+            <Flex
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Button onClick={addNewSecret} variation="primary" size="small">
+                Add New Secret
+              </Button>
+
+              <Flex gap="0.5rem">
+                <Button onClick={cancelEdit} variation="link">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={saveChanges}
+                  variation="primary"
+                  isLoading={saving}
+                  loadingText="Saving..."
+                >
+                  Save Changes
+                </Button>
+              </Flex>
+            </Flex>
+
+            <Alert variation="info" marginTop="1rem">
+              <Text fontSize="0.875rem">
+                • Green background indicates new secrets to be added
+                <br />
+                • Red background indicates secrets marked for deletion
+                <br />• Empty keys or values will be ignored when saving
+              </Text>
+            </Alert>
+          </View>
+        </Card>
+      )}
+    </View>
   );
 }
 

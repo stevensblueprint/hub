@@ -14,15 +14,26 @@ const backend = defineBackend({
 });
 
 const stack = backend.createStack("secretsmanager");
-const secret = new secretsmanager.Secret(stack, "secret-blueprint", {
-  secretName: "blueprint-secrets",
-  description: "Secrets for the blueprint application",
-  generateSecretString: {
-    secretStringTemplate: JSON.stringify({ username: "admin" }),
-    generateStringKey: "password",
-    excludeCharacters: '"@/\\',
-  },
-});
+
+const secretName = "blueprint-secrets";
+let secret: secretsmanager.ISecret;
+try {
+  secret = secretsmanager.Secret.fromSecretNameV2(
+    stack,
+    "secret-blueprint",
+    secretName
+  );
+} catch {
+  secret = new secretsmanager.Secret(stack, "secret-blueprint", {
+    secretName: secretName,
+    description: "Secrets for the blueprint application",
+    generateSecretString: {
+      secretStringTemplate: JSON.stringify({ username: "admin" }),
+      generateStringKey: "password",
+      excludeCharacters: '"@/\\',
+    },
+  });
+}
 
 const secretsPolicy = new iam.PolicyStatement({
   effect: iam.Effect.ALLOW,
@@ -39,7 +50,7 @@ backend.setSecrets.resources.lambda.addToRolePolicy(secretsPolicy);
 backend.getSecrets.resources.lambda.addToRolePolicy(secretsPolicy);
 
 backend.setSecrets.addEnvironment("SECRET_ARN", secret.secretArn);
-backend.setSecrets.addEnvironment("SECRET_NAME", "blueprint-secrets");
+backend.setSecrets.addEnvironment("SECRET_NAME", secretName);
 
 backend.getSecrets.addEnvironment("SECRET_ARN", secret.secretArn);
-backend.getSecrets.addEnvironment("SECRET_NAME", "blueprint-secrets");
+backend.getSecrets.addEnvironment("SECRET_NAME", secretName);
