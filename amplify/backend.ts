@@ -27,11 +27,6 @@ try {
   secret = new secretsmanager.Secret(stack, "secret-blueprint", {
     secretName: secretName,
     description: "Secrets for the blueprint application",
-    generateSecretString: {
-      secretStringTemplate: JSON.stringify({ username: "admin" }),
-      generateStringKey: "password",
-      excludeCharacters: '"@/\\',
-    },
   });
 }
 
@@ -43,7 +38,7 @@ const secretsPolicy = new iam.PolicyStatement({
     "secretsmanager:UpdateSecret",
     "secretsmanager:DescribeSecret",
   ],
-  resources: [secret.secretArn],
+  resources: [`${secret.secretArn}*`],
 });
 
 backend.setSecrets.resources.lambda.addToRolePolicy(secretsPolicy);

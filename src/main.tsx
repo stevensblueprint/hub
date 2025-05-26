@@ -8,7 +8,7 @@ import "@aws-amplify/ui-react/styles.css";
 
 Amplify.configure(outputs);
 const formFields = {
-  signIn: {
+  signUp: {
     email: {
       order: 1,
     },

@@ -7,77 +7,72 @@ import {
 
 const client = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
-interface SetSecretEvent {
-  secretKey: string;
-  secretValue: string;
+interface SetSecretsEvent {
+  secrets: Record<string, string> | string;
   description?: string;
 }
 
-export const handler: Handler = async (event: SetSecretEvent, context) => {
-  console.log("Event: ", event);
-  console.log("Context: ", context);
+export const handler: Handler<SetSecretsEvent> = async (event, context) => {
+  console.log("Event:", event);
+  console.log("Context:", context);
 
-  const { secretKey, secretValue, description } = event;
-  const secretArn = process.env.SECRET_ARN;
-
-  if (!secretKey || !secretValue) {
+  const raw = event.secrets;
+  let secretsMap: Record<string, string>;
+  try {
+    secretsMap = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
     return {
       statusCode: 400,
       body: {
-        error: "Missing required parameters: secretKey and secretValue",
+        error: "Invalid JSON in `secrets` argument",
       },
     };
   }
 
-  try {
-    let existingSecrets = {};
-    try {
-      const { GetSecretValueCommand } = await import(
-        "@aws-sdk/client-secrets-manager"
-      );
-      const getCommand = new GetSecretValueCommand({
-        SecretId: secretArn,
-      });
-      const getResult = await client.send(getCommand);
-      if (getResult.SecretString) {
-        existingSecrets = JSON.parse(getResult.SecretString);
-      }
-    } catch (error) {
-      console.log("No existing secrets found, creating new structure");
-    }
-    const updatedSecrets = {
-      ...existingSecrets,
-      [secretKey]: secretValue,
+  if (
+    !secretsMap ||
+    typeof secretsMap !== "object" ||
+    Object.values(secretsMap).some((v) => typeof v !== "string")
+  ) {
+    return {
+      statusCode: 400,
+      body: {
+        error:
+          '`secrets` must be a map of string→string, e.g. { key1: "val1", key2: "val2" }',
+      },
     };
-    const putCommand = new PutSecretValueCommand({
-      SecretId: secretArn,
-      SecretString: JSON.stringify(updatedSecrets),
-    });
+  }
 
-    const result = await client.send(putCommand);
-    if (description) {
-      const updateCommand = new UpdateSecretCommand({
+  const secretArn = process.env.SECRET_ARN!;
+  try {
+    const putCmd = new PutSecretValueCommand({
+      SecretId: secretArn,
+      SecretString: JSON.stringify(secretsMap),
+    });
+    const result = await client.send(putCmd);
+
+    if (event.description) {
+      const updateCmd = new UpdateSecretCommand({
         SecretId: secretArn,
-        Description: description,
+        Description: event.description,
       });
-      await client.send(updateCommand);
+      await client.send(updateCmd);
     }
 
     return {
       statusCode: 200,
       body: {
-        message: "Secret updated successfully",
-        secretKey: secretKey,
+        secrets: secretsMap,
         versionId: result.VersionId,
       },
     };
-  } catch (error) {
-    console.error("Error updating secret:", error);
+  } catch (err) {
+    console.error("Error replacing secrets:", err);
     return {
       statusCode: 500,
       body: {
-        error: "Failed to update secret",
-        details: error instanceof Error ? error.message : String(error),
+        error: "Failed to replace secrets",
+        details: err instanceof Error ? err.message : String(err),
       },
     };
   }
